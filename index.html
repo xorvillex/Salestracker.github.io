@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f6f8;
+            color: #1e293b;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        .alert-message {
+            position: fixed;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            background-color: #fca5a5;
+            color: #991b1b;
+            font-weight: 500;
+            z-index: 60;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .alert-message.show {
+            opacity: 1;
+        }
+        #map {
+            height: 500px;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8">
+    <div class="container mx-auto bg-white rounded-xl shadow-lg p-6 sm:p-8">
+        <header class="flex flex-col sm:flex-row items-center justify-between mb-6 border-b pb-4">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2 sm:mb-0">Sales Tracker</h1>
+        </header>
+
+        <!-- Main Tabs -->
+        <div class="flex flex-wrap gap-2 mb-6" id="main-tabs">
+            <button class="main-tab-btn px-4 py-2 text-sm font-medium rounded-full bg-indigo-600 text-white transition-colors" data-tab="leads">Leads</button>
+            <button class="main-tab-btn px-4 py-2 text-sm font-medium rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors" data-tab="reports">Reports</button>
+        </div>
+
+        <!-- Leads Section -->
+        <div id="leads-section" class="space-y-6">
+            <!-- Form for adding a new prospect -->
+            <div id="add-form" class="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+                <h2 id="form-title" class="text-2xl font-semibold text-gray-700 mb-4">Add New Lead</h2>
+                <form id="prospect-form" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label for="doctor-name" class="block text-sm font-medium text-gray-700">Doctor's Name</label>
+                            <input type="text" id="doctor-name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                        </div>
+                        <div>
+                            <label for="specialization" class="block text-sm font-medium text-gray-700">Specialization</label>
+                            <select id="specialization" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                                <option value="">Select Specialization</option>
+                                <option value="Anterior">Anterior Segment</option>
+                                <option value="Posterior">Posterior Segment</option>
+                                <option value="General">General</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="location" class="block text-sm font-medium text-gray-700">Location (e.g., Mulund, Bandra)</label>
+                            <input type="text" id="location" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                        </div>
+                        <div>
+                            <label for="day-of-week" class="block text-sm font-medium text-gray-700">Preferred Day</label>
+                            <select id="day-of-week" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                                <option value="">Select Day</option>
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                                <option value="Saturday">Saturday</option>
+                                <option value="Sunday">Sunday</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="preferred-time" class="block text-sm font-medium text-gray-700">Preferred Time (e.g., 10:30 AM)</label>
+                            <input type="text" id="preferred-time" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" placeholder="e.g., 10:30 AM or 16:30">
+                        </div>
+                        <div class="sm:col-span-2 lg:col-span-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Interested Devices</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                <div class="flex items-center">
+                                    <input type="checkbox" name="devices" value="Pristine 5.0" class="form-checkbox text-indigo-600 rounded-sm">
+                                    <span class="ml-2 text-sm text-gray-700">Pristine 5.0</span>
+                                    <input type="number" name="device-units" min="1" class="ml-2 w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 hidden">
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" name="devices" value="CompKit" class="form-checkbox text-indigo-600 rounded-sm">
+                                    <span class="ml-2 text-sm text-gray-700">CompKit</span>
+                                    <input type="number" name="device-units" min="1" class="ml-2 w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 hidden">
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" name="devices" value="AIM" class="form-checkbox text-indigo-600 rounded-sm">
+                                    <span class="ml-2 text-sm text-gray-700">AIM</span>
+                                    <input type="number" name="device-units" min="1" class="ml-2 w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 hidden">
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" name="devices" value="MRD" class="form-checkbox text-indigo-600 rounded-sm">
+                                    <span class="ml-2 text-sm text-gray-700">MRD</span>
+                                    <input type="number" name="device-units" min="1" class="ml-2 w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 hidden">
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" name="devices" value="FOP" class="form-checkbox text-indigo-600 rounded-sm">
+                                    <span class="ml-2 text-sm text-gray-700">FOP</span>
+                                    <input type="number" name="device-units" min="1" class="ml-2 w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 hidden">
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" name="devices" value="PSL" class="form-checkbox text-indigo-600 rounded-sm">
+                                    <span class="ml-2 text-sm text-gray-700">PSL</span>
+                                    <input type="number" name="device-units" min="1" class="ml-2 w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 hidden">
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" name="devices" value="InstaRef" class="form-checkbox text-indigo-600 rounded-sm">
+                                    <span class="ml-2 text-sm text-gray-700">InstaRef</span>
+                                    <input type="number" name="device-units" min="1" class="ml-2 w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 hidden">
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" name="devices" value="Tonometer" class="form-checkbox text-indigo-600 rounded-sm">
+                                    <span class="ml-2 text-sm text-gray-700">Tonometer</span>
+                                    <input type="number" name="device-units" min="1" class="ml-2 w-16 text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-1 hidden">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="notes" class="block text-sm font-medium text-gray-700">Notes</label>
+                        <textarea id="notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2" placeholder="Add notes from your conversation..."></textarea>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" id="form-button" class="px-6 py-2 bg-indigo-600 text-white font-medium rounded-md shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">Add Lead</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Search and Filter controls -->
+            <div class="mb-6 flex flex-col sm:flex-row gap-4">
+                <div class="w-full">
+                    <label for="search-bar" class="block text-sm font-medium text-gray-700">Search Leads</label>
+                    <input type="text" id="search-bar" placeholder="Search by name, specialization, or location..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                </div>
+                <div class="w-full sm:w-1/2 lg:w-1/4">
+                    <label for="location-filter" class="block text-sm font-medium text-gray-700">Filter by Location</label>
+                    <select id="location-filter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                        <option value="all">All Locations</option>
+                    </select>
+                </div>
+                <div class="w-full sm:w-1/2 lg:w-1/4">
+                    <label for="day-filter" class="block text-sm font-medium text-gray-700">Filter by Day</label>
+                    <select id="day-filter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                        <option value="all">All Days</option>
+                        <option value="Monday">Monday</option>
+                        <option value="Tuesday">Tuesday</option>
+                        <option value="Wednesday">Wednesday</option>
+                        <option value="Thursday">Thursday</option>
+                        <option value="Friday">Friday</option>
+                        <option value="Saturday">Saturday</option>
+                        <option value="Sunday">Sunday</option>
+                    </select>
+                </div>
+                <div class="w-full sm:w-1/2 lg:w-1/4">
+                    <label for="time-filter" class="block text-sm font-medium text-gray-700">Filter by Time</label>
+                    <select id="time-filter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2">
+                        <option value="all">All Times</option>
+                        <option value="morning">Morning/Afternoon (Before 4 PM)</option>
+                        <option value="evening">Evening/Night (After 4 PM)</option>
+                    </select>
+                </div>
+            </div>
+    
+            <!-- Tabs -->
+            <div class="flex flex-wrap gap-2 mb-6" id="prospect-tabs">
+                <button class="tab-btn px-4 py-2 text-sm font-medium rounded-full bg-indigo-600 text-white transition-colors" data-filter="all">All</button>
+                <button class="tab-btn px-4 py-2 text-sm font-medium rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors" data-filter="demoDone">Demo Done</button>
+                <button class="tab-btn px-4 py-2 text-sm font-medium rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors" data-filter="high">High Potential</button>
+                <button class="tab-btn px-4 py-2 text-sm font-medium rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors" data-filter="medium">Medium Potential</button>
+                <button class="tab-btn px-4 py-2 text-sm font-medium rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors" data-filter="low">Low Potential</button>
+            </div>
+    
+            <!-- Prospect list -->
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Your Sales Pipeline</h2>
+            <div id="prospects-list" class="space-y-4">
+                <!-- Prospect cards will be injected here by JavaScript -->
+                <div id="loading-message" class="text-center text-gray-500 py-8">No leads found. Add a new lead to get started.</div>
+            </div>
+    
+            <!-- Multi-select Share button -->
+            <div class="mt-6 flex justify-end">
+                <button id="multi-whatsapp-btn" class="px-6 py-2 bg-green-500 text-white font-medium rounded-md shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                    Share Selected via WhatsApp
+                </button>
+            </div>
+        </div>
+
+        <!-- Reports Section -->
+        <div id="reports-section" class="hidden">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Sales Reports</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-50 p-6 rounded-lg shadow-inner h-80 flex items-center justify-center">
+                    <canvas id="potentialChart"></canvas>
+                </div>
+                <div class="bg-gray-50 p-6 rounded-lg shadow-inner h-80 flex items-center justify-center">
+                    <canvas id="specializationChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modals and Alerts -->
+    <div id="delete-modal" class="modal-overlay hidden">
+        <div class="bg-white rounded-lg p-6 shadow-xl w-80">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Confirm Deletion</h3>
+            <p class="text-gray-600 mb-6">Are you sure you want to delete this lead? This action cannot be undone.</p>
+            <div class="flex justify-end space-x-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors">Cancel</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
+    <div id="ai-modal" class="modal-overlay hidden">
+        <div class="bg-white rounded-lg p-6 shadow-xl w-96">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">AI Analysis</h3>
+            <div id="ai-response" class="text-gray-600 mb-6">Analyzing notes...</div>
+            <div class="flex justify-end">
+                <button id="close-ai-modal" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="alert-message" class="alert-message hidden"></div>
+
+    <script>
+        const prospectsList = document.getElementById('prospects-list');
+        const prospectForm = document.getElementById('prospect-form');
+        const formTitle = document.getElementById('form-title');
+        const formButton = document.getElementById('form-button');
+        const loadingMessage = document.getElementById('loading-message');
+        const searchBar = document.getElementById('search-bar');
+        const multiWhatsappBtn = document.getElementById('multi-whatsapp-btn');
+        const deleteModal = document.getElementById('delete-modal');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const alertMessage = document.getElementById('alert-message');
+        const prospectTabs = document.getElementById('prospect-tabs');
+        const locationFilterSelect = document.getElementById('location-filter');
+        const dayFilterSelect = document.getElementById('day-filter');
+        const timeFilterSelect = document.getElementById('time-filter');
+
+        const doctorNameInput = document.getElementById('doctor-name');
+        const specializationSelect = document.getElementById('specialization');
+        const locationInput = document.getElementById('location');
+        const dayOfWeekSelect = document.getElementById('day-of-week');
+        const preferredTimeInput = document.getElementById('preferred-time');
+        const deviceCheckboxes = document.querySelectorAll('input[name="devices"]');
+        const deviceUnitsInputs = document.querySelectorAll('input[name="device-units"]');
+        const notesInput = document.getElementById('notes');
+
+        const mainTabs = document.getElementById('main-tabs');
+        const leadsSection = document.getElementById('leads-section');
+        const reportsSection = document.getElementById('reports-section');
+        const mapsSection = document.getElementById('maps-section');
+        const aiModal = document.getElementById('ai-modal');
+        const aiResponse = document.getElementById('ai-response');
+        const closeAiModalBtn = document.getElementById('close-ai-modal');
+        const mapLoading = document.getElementById('map-loading');
+
+
+        let potentialChart, specializationChart;
+        let map;
+
+        let prospectToDeleteId = null;
+        let currentFilter = 'all';
+        let isEditing = false;
+        let editingLeadId = null;
+
+        const saveToLocalStorage = (data) => {
+            localStorage.setItem('sales_leads', JSON.stringify(data));
+        };
+
+        const loadFromLocalStorage = () => {
+            const data = localStorage.getItem('sales_leads');
+            let prospects = data ? JSON.parse(data) : [];
+            return prospects;
+        };
+        
+        const generateSampleData = () => {
+            const sampleData = [
+                { id: Date.now() + 1000, name: "Dr. Ankit Patel", specialization: "Anterior", location: "Bandra Kurla Complex, Mumbai", day: "Monday", time: "10:30 AM", interestedDevices: ["Pristine 5.0:1", "CompKit:2"], isDemoDone: false, followUps: 0, lastContacted: Date.now() - (15 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "Patient with severe diabetic retinopathy. Looking for a high-resolution, portable fundus camera." },
+                { id: Date.now() + 2000, name: "Dr. Maya Sharma", specialization: "Posterior", location: "Hiranandani Gardens, Powai, Mumbai", day: "Tuesday", time: "02:00 PM", interestedDevices: ["AIM:1", "MRD:1"], isDemoDone: true, followUps: 1, lastContacted: Date.now() - (3 * 24 * 60 * 60 * 1000), buyerPotential: "Medium", notes: "Open to new devices. Main concern is ease of use and quick image transfer to patient records." },
+                { id: Date.now() + 3000, name: "Dr. Rohan Gupta", specialization: "General", location: "Saki Naka, Andheri East, Mumbai", day: "Wednesday", time: "05:00 PM", interestedDevices: ["FOP:1"], isDemoDone: false, followUps: 0, lastContacted: Date.now() - (20 * 24 * 60 * 60 * 1000), buyerPotential: "Low", notes: "Clinic is just starting out. Budget is very tight, but they are interested in basic diagnostic tools." },
+                { id: Date.now() + 4000, name: "Dr. Priya Singh", specialization: "Anterior", location: "L.B.S. Marg, Mulund West, Mumbai", day: "Friday", time: "03:30 PM", interestedDevices: ["InstaRef:1", "Tonometer:2"], isDemoDone: false, followUps: 2, lastContacted: Date.now() - (2 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "High volume practice. Looking for a fast, automated tonometer to reduce patient wait times. Wants to see a demo of the InstaRef." },
+                { id: Date.now() + 5000, name: "Dr. Sanjay Verma", specialization: "Posterior", location: "Juhu Tara Road, Mumbai", day: "Saturday", time: "09:00 AM", interestedDevices: ["PSL:1", "MRD:1"], isDemoDone: true, followUps: 5, lastContacted: Date.now() - (30 * 24 * 60 * 60 * 1000), buyerPotential: "Low", notes: "Follow-up calls have not been successful. Says he is happy with his current equipment." },
+                { id: Date.now() + 6000, name: "Dr. Aarti Rao", specialization: "General", location: "Pali Hill, Bandra West, Mumbai", day: "Sunday", time: "04:30 PM", interestedDevices: ["CompKit:1"], isDemoDone: false, followUps: 1, lastContacted: Date.now() - (10 * 24 * 60 * 60 * 1000), buyerPotential: "Medium", notes: "Clinic has been open for 5 years. Considering upgrading from old slit lamp. Mentioned they need a CompKit for their new office." },
+                { id: Date.now() + 7000, name: "Dr. Vivek Mehra", specialization: "Anterior", location: "IIT Bombay, Powai, Mumbai", day: "Monday", time: "11:00 AM", interestedDevices: ["Pristine 5.0:1"], isDemoDone: false, followUps: 0, lastContacted: Date.now() - (1 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "Very interested in the AI features for diabetic retinopathy screening. Asked for a follow-up call next week with pricing details." },
+                { id: Date.now() + 8000, name: "Dr. Smita Desai", specialization: "General", location: "MIDC, Andheri East, Mumbai", day: "Tuesday", time: "09:30 AM", interestedDevices: ["CompKit:1"], isDemoDone: false, followUps: 1, lastContacted: Date.now() - (12 * 24 * 60 * 60 * 1000), buyerPotential: "Medium", notes: "Spoke with office manager. They are collecting quotes and will make a decision in 2-3 weeks." },
+                { id: Date.now() + 9000, name: "Dr. Rajeev Singh", specialization: "Posterior", location: "Mulund West, Mumbai", day: "Wednesday", time: "06:00 PM", interestedDevices: ["FOP:1", "PSL:1"], isDemoDone: false, followUps: 0, lastContacted: Date.now() - (5 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "Main practice is in Mulund, but has a satellite clinic in Thane. Wants a portable device for use between locations. Found the FOP interesting." },
+                { id: Date.now() + 10000, name: "Dr. Pooja Kale", specialization: "Anterior", location: "Linking Road, Bandra, Mumbai", day: "Thursday", time: "02:00 PM", interestedDevices: ["InstaRef:1", "Tonometer:1"], isDemoDone: true, followUps: 4, lastContacted: Date.now() - (10 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "Demo went very well. Doctor is highly impressed with the InstaRef's speed. Wants to know about financing options." },
+                { id: Date.now() + 11000, name: "Dr. Rahul Joshi", specialization: "General", location: "Lake Road, Powai, Mumbai", day: "Friday", time: "05:30 PM", interestedDevices: ["AIM:1"], isDemoDone: false, followUps: 2, lastContacted: Date.now() - (25 * 24 * 60 * 60 * 1000), buyerPotential: "Low", notes: "Does not seem to be a good fit. Unresponsive to multiple follow-up calls." },
+                { id: Date.now() + 12000, name: "Dr. Alok Verma", specialization: "Posterior", location: "Vartak Nagar, Thane, Mumbai", day: "Friday", time: "11:00 AM", interestedDevices: ["FOP:1", "MRD:1"], isDemoDone: true, followUps: 2, lastContacted: Date.now() - (40 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "Had a great demo. The doctor is interested in the FOP for vitreo-retinal procedures." },
+                { id: Date.now() + 13000, name: "Dr. Neha Shah", specialization: "Anterior", location: "Ranade Road, Dadar, Mumbai", day: "Friday", time: "05:00 PM", interestedDevices: ["Pristine 5.0:1"], isDemoDone: false, followUps: 0, lastContacted: Date.now() - (1 * 24 * 60 * 60 * 1000), buyerPotential: "Medium", notes: "Met at a conference. Showed interest in the portability of Pristine 5.0. Needs a demo at her clinic." },
+                { id: Date.now() + 14000, name: "Dr. Deepak Kumar", specialization: "General", location: "Dr. B.A. Road, Chembur, Mumbai", day: "Thursday", time: "01:00 PM", interestedDevices: ["CompKit:1", "PSL:1"], isDemoDone: true, followUps: 1, lastContacted: Date.now() - (60 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "Demoed CompKit and PSL. Doctor wants to purchase but is waiting for budget approval from the hospital." },
+                { id: Date.now() + 15000, name: "Dr. Riya Sharma", specialization: "Anterior", location: "Navghar Road, Mulund East, Mumbai", day: "Tuesday", time: "11:00 AM", interestedDevices: ["Tonometer:1"], isDemoDone: false, followUps: 0, lastContacted: Date.now() - (1 * 24 * 60 * 60 * 1000), buyerPotential: "Medium", notes: "Looking to replace old tonometer. Mentioned they prefer a handheld model." },
+                { id: Date.now() + 16000, name: "Dr. Karan Jain", specialization: "Posterior", location: "S.V. Road, Bandra West, Mumbai", day: "Monday", time: "05:00 PM", interestedDevices: ["Pristine 5.0:1", "AIM:1"], isDemoDone: false, followUps: 0, lastContacted: Date.now() - (1 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "Specialist in diabetic retinopathy. Interested in AI-enabled fundus imaging. Has a clinic in Bandra." },
+                { id: Date.now() + 17000, name: "Dr. Tanvi Mehta", specialization: "General", location: "JB Nagar, Andheri East, Mumbai", day: "Wednesday", time: "02:00 PM", interestedDevices: ["CompKit:1"], isDemoDone: true, followUps: 1, lastContacted: Date.now() - (1 * 24 * 60 * 60 * 1000), buyerPotential: "High", notes: "Demo was successful. The doctor is very impressed with the quality of the device." },
+                { id: Date.now() + 18000, name: "Dr. Vishal Shah", specialization: "Anterior", location: "Chandivali, Powai, Mumbai", day: "Thursday", time: "10:00 AM", interestedDevices: ["PSL:1", "InstaRef:1"], isDemoDone: false, followUps: 0, lastContacted: Date.now() - (1 * 24 * 60 * 60 * 1000), buyerPotential: "Medium", notes: "Looking for a new slit lamp. Has a few competitors in mind. Needs a compelling reason to switch." }
+            ];
+            saveToLocalStorage(sampleData);
+        };
+        
+        const analyzeNotes = async (notes) => {
+            aiResponse.textContent = "Thinking...";
+            aiModal.classList.remove('hidden');
+
+            const systemPrompt = "You are a sales assistant for a medical device company. Your task is to analyze a sales call note and recommend the best ophthalmic device from the list (Pristine 5.0, CompKit, AIM, MRD, FOP, PSL, InstaRef, Tonometer) to follow up on. You must also suggest a short, concise follow-up action. Be professional and helpful. Here is the user's note:";
+
+            const userQuery = notes;
+            const apiKey = "" // If you want to use models other than gemini-2.5-flash-preview-05-20 or imagen-3.0-generate-002, provide an API key here. Otherwise, leave this as-is.
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+
+            let finalResponseText = '';
+            const retryWithBackoff = async (url, options, retries = 5, delay = 1000) => {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        if (response.status === 429 && retries > 0) {
+                            console.warn(`Rate limit hit. Retrying in ${delay}ms...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            return retryWithBackoff(url, options, retries - 1, delay * 2);
+                        }
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    return null;
+                }
+            };
+            const result = await retryWithBackoff(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (result && result.candidates && result.candidates.length > 0 && result.candidates[0].content && result.candidates[0].content.parts && result.candidates[0].content.parts.length > 0) {
+                finalResponseText = result.candidates[0].content.parts[0].text;
+            } else {
+                finalResponseText = "Sorry, I couldn't analyze the notes at this time. Please try again.";
+            }
+            aiResponse.textContent = finalResponseText;
+        };
+
+        const showAlert = (message) => {
+            alertMessage.textContent = message;
+            alertMessage.classList.remove('hidden');
+            alertMessage.classList.add('show');
+            setTimeout(() => {
+                alertMessage.classList.remove('show');
+                setTimeout(() => alertMessage.classList.add('hidden'), 300);
+            }, 3000);
+        };
+
+        const showDeleteModal = (id) => {
+            prospectToDeleteId = id;
+            deleteModal.classList.remove('hidden');
+        };
+
+        const hideDeleteModal = () => {
+            prospectToDeleteId = null;
+            deleteModal.classList.add('hidden');
+        };
+
+        const renderProspects = (prospects) => {
+            const currentLeads = loadFromLocalStorage();
+            if (currentLeads.length === 0) {
+                 loadingMessage.classList.remove('hidden');
+            } else {
+                 loadingMessage.classList.add('hidden');
+            }
+            prospectsList.innerHTML = '';
+            if (prospects.length === 0) {
+                prospectsList.innerHTML = `<div class="text-center text-gray-500 py-8">No matching leads found.</div>`;
+                return;
+            }
+
+            const groupedByDate = prospects.reduce((acc, prospect) => {
+                const date = new Date(prospect.id).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                if (!acc[date]) {
+                    acc[date] = [];
+                }
+                acc[date].push(prospect);
+                return acc;
+            }, {});
+
+            const sortedDates = Object.keys(groupedByDate).sort((a, b) => new Date(b) - new Date(a));
+
+            for (const date of sortedDates) {
+                const dateHeader = document.createElement('h3');
+                dateHeader.className = "text-lg font-semibold text-gray-600 mt-6 mb-2";
+                dateHeader.textContent = date;
+                prospectsList.appendChild(dateHeader);
+                
+                const dayContainer = document.createElement('div');
+                dayContainer.className = "space-y-4";
+                prospectsList.appendChild(dayContainer);
+
+                groupedByDate[date].forEach(createProspectCard);
+            }
+        };
+
+        const createProspectCard = (prospect) => {
+            const card = document.createElement('div');
+            card.className = "bg-white rounded-lg shadow-md p-6 border border-gray-200 transition-all hover:shadow-lg relative";
+            card.dataset.id = prospect.id;
+            
+            // Proactive notification dot logic
+            const lastContactedDate = new Date(prospect.lastContacted);
+            const now = new Date();
+            const daysSinceLastContact = Math.floor((now - lastContactedDate) / (1000 * 60 * 60 * 24));
+            let dotColor = 'bg-gray-400';
+            let dotTitle = 'No recent contact';
+
+            if (daysSinceLastContact < 7) {
+                dotColor = 'bg-green-500';
+                dotTitle = 'Recently contacted';
+            } else if (daysSinceLastContact >= 7 && daysSinceLastContact < 14) {
+                dotColor = 'bg-yellow-500';
+                dotTitle = 'Follow-up soon';
+            } else {
+                dotColor = 'bg-red-500';
+                dotTitle = 'Needs immediate follow-up';
+            }
+            
+            let statusColor = '';
+            let statusText = '';
+            if (prospect.isDemoDone) {
+                statusColor = 'bg-green-100 text-green-700';
+                statusText = 'Demo Done';
+            } else {
+                statusColor = 'bg-yellow-100 text-yellow-700';
+                statusText = 'Pending Demo';
+            }
+
+            let buyerPotentialClass = '';
+            if (prospect.buyerPotential === 'High') {
+                buyerPotentialClass = 'bg-green-500';
+            } else if (prospect.buyerPotential === 'Medium') {
+                buyerPotentialClass = 'bg-yellow-500';
+            } else if (prospect.buyerPotential === 'Low') {
+                buyerPotentialClass = 'bg-red-500';
+            } else {
+                buyerPotentialClass = 'bg-gray-400';
+            }
+            
+            let devicesHtml = '';
+            if (prospect.interestedDevices && prospect.interestedDevices.length > 0) {
+                const deviceList = prospect.interestedDevices.map(item => {
+                    const [device, units] = item.split(':');
+                    return `${device.trim()}${units && units !== '0' ? ` (${units} units)` : ''}`;
+                }).join(', ');
+                devicesHtml = `<p class="mt-2"><strong>Interested in:</strong> ${deviceList}</p>`;
+            }
+
+            card.innerHTML = `
+                <input type="checkbox" class="absolute top-2 right-2 w-5 h-5 form-checkbox text-indigo-600 rounded-sm">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 pb-4 border-b border-gray-200">
+                    <h3 class="text-xl font-bold text-gray-800">${prospect.name}</h3>
+                    <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                        <span class="w-3 h-3 rounded-full ${dotColor}" title="${dotTitle}"></span>
+                        <span class="text-sm font-semibold px-2 py-1 rounded-full ${statusColor}">${statusText}</span>
+                    </div>
+                </div>
+                <div class="space-y-2 text-gray-600 mb-4">
+                    <p><strong>Specialization:</strong> ${prospect.specialization}</p>
+                    <p><strong>Location:</strong> ${prospect.location}</p>
+                    <p><strong>Preferred Day:</strong> ${prospect.day || 'N/A'}</p>
+                    <p><strong>Preferred Time:</strong> ${prospect.time || 'N/A'}</p>
+                    ${devicesHtml}
+                    <div class="flex items-center">
+                        <strong>Buyer Potential:</strong>
+                        <span class="ml-2 px-3 py-1 text-xs font-semibold text-white rounded-full ${buyerPotentialClass}">
+                            ${prospect.buyerPotential || 'Not Set'}
+                        </span>
+                    </div>
+                    <p><strong>Follow-up Rate:</strong> ${prospect.followUps || 0} times</p>
+                    <p class="text-xs text-gray-500 italic">Last Contacted: ${new Date(prospect.lastContacted).toLocaleDateString()}</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button class="update-demo-btn px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-blue-600 transition-colors">
+                        ${prospect.isDemoDone ? 'Re-open Demo' : 'Mark Demo Done'}
+                    </button>
+                    <button class="follow-up-btn px-4 py-2 bg-purple-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-purple-600 transition-colors">
+                        Log Follow-up
+                    </button>
+                    <select class="potential-select px-4 py-2 text-sm rounded-md border border-gray-300">
+                        <option value="">Set Potential</option>
+                        <option value="High" ${prospect.buyerPotential === 'High' ? 'selected' : ''}>High</option>
+                        <option value="Medium" ${prospect.buyerPotential === 'Medium' ? 'selected' : ''}>Medium</option>
+                        <option value="Low" ${prospect.buyerPotential === 'Low' ? 'selected' : ''}>Low</option>
+                    </select>
+                    <button class="analyze-btn px-4 py-2 bg-pink-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-pink-600 transition-colors">
+                        AI Analyze Notes
+                    </button>
+                    <button class="edit-btn px-4 py-2 bg-yellow-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-yellow-600 transition-colors">
+                        Edit
+                    </button>
+                    <button class="delete-btn px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-red-600 transition-colors">
+                        Delete
+                    </button>
+                </div>
+            `;
+            prospectsList.appendChild(card);
+        };
+
+        const getTimeSlot = (timeString) => {
+            if (!timeString) return 'N/A';
+            const timeLower = timeString.toLowerCase();
+            let hours;
+            if (timeLower.includes('am')) {
+                const h = timeLower.replace('am', '').trim().split(':')[0];
+                hours = parseInt(h);
+            } else if (timeLower.includes('pm')) {
+                const h = timeLower.replace('pm', '').trim().split(':')[0];
+                hours = parseInt(h);
+                if (hours !== 12) hours += 12;
+            } else {
+                hours = parseInt(timeLower.split(':')[0]);
+            }
+            if (hours >= 0 && hours < 16) {
+                return 'morning';
+            } else if (hours >= 16 && hours <= 23) {
+                return 'evening';
+            }
+            return 'N/A';
+        };
+
+        const filterAndRenderProspects = () => {
+            const searchTerm = searchBar.value.toLowerCase();
+            const locationFilter = locationFilterSelect.value;
+            const dayFilter = dayFilterSelect.value;
+            const timeFilter = timeFilterSelect.value;
+
+            let prospects = loadFromLocalStorage();
+            
+            const currentLeads = loadFromLocalStorage();
+            if (currentLeads.length === 0) {
+                 loadingMessage.classList.remove('hidden');
+            } else {
+                 loadingMessage.classList.add('hidden');
+            }
+
+            let filteredProspects = prospects;
+
+            // Filter by Location
+            if (locationFilter !== 'all') {
+                filteredProspects = filteredProspects.filter(p => p.location.toLowerCase().includes(locationFilter.toLowerCase()));
+            }
+
+            // Filter by Day
+            if (dayFilter !== 'all') {
+                filteredProspects = filteredProspects.filter(p => p.day === dayFilter);
+            }
+
+            // Filter by Time Slot
+            if (timeFilter !== 'all') {
+                filteredProspects = filteredProspects.filter(p => getTimeSlot(p.time) === timeFilter);
+            }
+            
+            // Filter by Tab
+            if (currentFilter === 'demoDone') {
+                filteredProspects = filteredProspects.filter(p => p.isDemoDone);
+            } else if (currentFilter === 'high') {
+                filteredProspects = filteredProspects.filter(p => p.buyerPotential === 'High');
+            } else if (currentFilter === 'medium') {
+                filteredProspects = filteredProspects.filter(p => p.buyerPotential === 'Medium');
+            } else if (currentFilter === 'low') {
+                filteredProspects = filteredProspects.filter(p => p.buyerPotential === 'Low');
+            }
+
+            // Filter by Search Term
+            if (searchTerm) {
+                filteredProspects = filteredProspects.filter(p => 
+                    p.name.toLowerCase().includes(searchTerm) ||
+                    p.specialization.toLowerCase().includes(searchTerm) ||
+                    p.location.toLowerCase().includes(searchTerm)
+                );
+            }
+            renderProspects(filteredProspects);
+        };
+
+        const populateLocationFilter = () => {
+            const prospects = loadFromLocalStorage();
+            const uniqueLocations = [...new Set(prospects.map(p => p.location.split(',')[0].trim()))]; // Use first part of location for filter
+            locationFilterSelect.innerHTML = '<option value="all">All Locations</option>';
+            uniqueLocations.forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = location;
+                locationFilterSelect.appendChild(option);
+            });
+        };
+
+        const resetForm = () => {
+            prospectForm.reset();
+            formTitle.textContent = 'Add New Lead';
+            formButton.textContent = 'Add Lead';
+            isEditing = false;
+            editingLeadId = null;
+            document.querySelectorAll('input[name="device-units"]').forEach(input => {
+                input.classList.add('hidden');
+                input.value = '';
+            });
+        };
+
+        const fillFormForEdit = (lead) => {
+            formTitle.textContent = 'Edit Lead';
+            formButton.textContent = 'Save Changes';
+            isEditing = true;
+            editingLeadId = lead.id;
+
+            doctorNameInput.value = lead.name;
+            specializationSelect.value = lead.specialization;
+            locationInput.value = lead.location;
+            dayOfWeekSelect.value = lead.day || '';
+            preferredTimeInput.value = lead.time || '';
+            notesInput.value = lead.notes || '';
+
+            // Reset and fill interested devices
+            deviceCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+                const unitsInput = checkbox.nextElementSibling.nextElementSibling;
+                unitsInput.classList.add('hidden');
+                unitsInput.value = '';
+            });
+
+            if (lead.interestedDevices) {
+                lead.interestedDevices.forEach(item => {
+                    const [device, units] = item.split(':');
+                    const checkbox = document.querySelector(`input[name="devices"][value="${device.trim()}"]`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                        const unitsInput = checkbox.nextElementSibling.nextElementSibling;
+                        unitsInput.classList.remove('hidden');
+                        unitsInput.value = units || '';
+                    }
+                });
+            }
+        };
+
+        const updateCharts = () => {
+            const prospects = loadFromLocalStorage();
+
+            // Potential Chart
+            const potentialCounts = prospects.reduce((acc, p) => {
+                const potential = p.buyerPotential || 'Not Set';
+                acc[potential] = (acc[potential] || 0) + 1;
+                return acc;
+            }, {});
+            const potentialLabels = Object.keys(potentialCounts);
+            const potentialData = Object.values(potentialCounts);
+
+            if (potentialChart) potentialChart.destroy();
+            potentialChart = new Chart(document.getElementById('potentialChart'), {
+                type: 'pie',
+                data: {
+                    labels: potentialLabels,
+                    datasets: [{
+                        data: potentialData,
+                        backgroundColor: ['#4ade80', '#facc15', '#ef4444', '#9ca3af']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            // Specialization Chart
+            const specializationCounts = prospects.reduce((acc, p) => {
+                const specialization = p.specialization || 'Not Set';
+                acc[specialization] = (acc[specialization] || 0) + 1;
+                return acc;
+            }, {});
+            const specializationLabels = Object.keys(specializationCounts);
+            const specializationData = Object.values(specializationCounts);
+
+            if (specializationChart) specializationChart.destroy();
+            specializationChart = new Chart(document.getElementById('specializationChart'), {
+                type: 'bar',
+                data: {
+                    labels: specializationLabels,
+                    datasets: [{
+                        label: 'Leads by Specialization',
+                        data: specializationData,
+                        backgroundColor: '#6366f1'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+        };
+
+        prospectForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = doctorNameInput.value;
+            const specialization = specializationSelect.value;
+            const location = locationInput.value;
+            const day = dayOfWeekSelect.value;
+            const time = preferredTimeInput.value;
+            const notes = notesInput.value;
+            
+            const interestedDevices = Array.from(document.querySelectorAll('input[name="devices"]:checked')).map(el => {
+                const unitsInput = el.nextElementSibling.nextElementSibling;
+                const units = unitsInput.value || 0;
+                return `${el.value}:${units}`;
+            });
+
+            if (isEditing) {
+                // Update existing lead
+                let prospects = loadFromLocalStorage();
+                const leadIndex = prospects.findIndex(p => p.id === editingLeadId);
+                if (leadIndex > -1) {
+                    prospects[leadIndex] = {
+                        ...prospects[leadIndex],
+                        name,
+                        specialization,
+                        location,
+                        day,
+                        time,
+                        interestedDevices,
+                        notes
+                    };
+                    saveToLocalStorage(prospects);
+                    filterAndRenderProspects();
+                    updateCharts();
+                    showAlert('Lead updated successfully!');
+                    resetForm();
+                }
+            } else {
+                // Add new lead
+                const newLead = {
+                    id: Date.now(),
+                    name,
+                    specialization,
+                    location,
+                    day,
+                    time,
+                    interestedDevices,
+                    isDemoDone: false,
+                    followUps: 0,
+                    buyerPotential: '',
+                    notes,
+                    lastContacted: Date.now()
+                };
+                const prospects = loadFromLocalStorage();
+                prospects.unshift(newLead);
+                saveToLocalStorage(prospects);
+                filterAndRenderProspects();
+                updateCharts();
+                showAlert('New lead added!');
+                resetForm();
+            }
+
+            populateLocationFilter();
+        });
+
+        prospectsList.addEventListener('click', (e) => {
+            const card = e.target.closest('[data-id]');
+            if (!card) return;
+            const docId = parseInt(card.dataset.id);
+
+            let prospects = loadFromLocalStorage();
+            const prospectIndex = prospects.findIndex(p => p.id === docId);
+
+            if (e.target.classList.contains('update-demo-btn')) {
+                if (prospectIndex > -1) {
+                    prospects[prospectIndex].isDemoDone = !prospects[prospectIndex].isDemoDone;
+                    prospects[prospectIndex].lastContacted = Date.now();
+                    saveToLocalStorage(prospects);
+                    filterAndRenderProspects();
+                }
+            } else if (e.target.classList.contains('follow-up-btn')) {
+                if (prospectIndex > -1) {
+                    prospects[prospectIndex].followUps += 1;
+                    prospects[prospectIndex].lastContacted = Date.now();
+                    saveToLocalStorage(prospects);
+                    filterAndRenderProspects();
+                }
+            } else if (e.target.classList.contains('analyze-btn')) {
+                const leadToEdit = prospects.find(p => p.id === docId);
+                if (leadToEdit) {
+                    const notes = leadToEdit.notes;
+                    if (notes) {
+                        analyzeNotes(notes);
+                    } else {
+                        showAlert('No notes to analyze for this lead.');
+                    }
+                }
+            } else if (e.target.classList.contains('edit-btn')) {
+                const leadToEdit = prospects.find(p => p.id === docId);
+                if (leadToEdit) {
+                    fillFormForEdit(leadToEdit);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            } else if (e.target.classList.contains('delete-btn')) {
+                showDeleteModal(docId);
+            }
+        });
+
+        prospectsList.addEventListener('change', (e) => {
+            if (e.target.classList.contains('potential-select')) {
+                const card = e.target.closest('[data-id]');
+                if (!card) return;
+                const docId = parseInt(card.dataset.id);
+                let prospects = loadFromLocalStorage();
+                const prospectIndex = prospects.findIndex(p => p.id === docId);
+                if (prospectIndex > -1) {
+                    prospects[prospectIndex].buyerPotential = e.target.value;
+                    saveToLocalStorage(prospects);
+                    filterAndRenderProspects();
+                    updateCharts();
+                }
+            }
+        });
+
+        multiWhatsappBtn.addEventListener('click', () => {
+            const selectedCards = document.querySelectorAll('#prospects-list input[type="checkbox"]:checked');
+            if (selectedCards.length === 0) {
+                showAlert('Please select at least one lead to share.');
+                return;
+            }
+
+            let message = "*Sales Tracker - Selected Leads*\n\n";
+            selectedCards.forEach(checkbox => {
+                const card = checkbox.closest('[data-id]');
+                const name = card.querySelector('h3').textContent;
+                const specialization = card.querySelector('p:nth-of-type(1)').textContent.replace('Specialization:', '').trim();
+                const location = card.querySelector('p:nth-of-type(2)').textContent.replace('Location:', '').trim();
+                const day = card.querySelector('p:nth-of-type(3)').textContent.replace('Preferred Day:', '').trim();
+                const time = card.querySelector('p:nth-of-type(4)').textContent.replace('Preferred Time:', '').trim();
+                const interestedDevices = card.querySelector('p:nth-of-type(5)') ? card.querySelector('p:nth-of-type(5)').textContent.replace('Interested in:', '').trim() : 'N/A';
+                const status = card.querySelector('.update-demo-btn').textContent.includes('Re-open') ? 'Demo Done' : 'Pending Demo';
+                const potential = card.querySelector('.potential-select').value || 'Not Set';
+                const lastContacted = card.querySelector('.text-xs').textContent.replace('Last Contacted:', '').trim();
+                
+                message += `*Name:* ${name}\n` +
+                           `*Specialization:* ${specialization}\n` +
+                           `*Location:* ${location}\n` +
+                           `*Preferred Day:* ${day}\n` +
+                           `*Preferred Time:* ${time}\n` +
+                           `*Interested Devices:* ${interestedDevices}\n` +
+                           `*Status:* ${status}\n` +
+                           `*Buyer Potential:* ${potential}\n` +
+                           `*Last Contacted:* ${lastContacted}\n\n`;
+            });
+
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+        });
+        
+        // Delete Modal Event Listeners
+        confirmDeleteBtn.addEventListener('click', () => {
+            let prospects = loadFromLocalStorage();
+            const updatedProspects = prospects.filter(p => p.id !== prospectToDeleteId);
+            saveToLocalStorage(updatedProspects);
+            filterAndRenderProspects();
+            populateLocationFilter();
+            updateCharts();
+            hideDeleteModal();
+        });
+
+        cancelDeleteBtn.addEventListener('click', () => {
+            hideDeleteModal();
+        });
+        
+        // Close AI Modal
+        closeAiModalBtn.addEventListener('click', () => {
+            aiModal.classList.add('hidden');
+        });
+        
+        searchBar.addEventListener('input', filterAndRenderProspects);
+        locationFilterSelect.addEventListener('change', filterAndRenderProspects);
+        dayFilterSelect.addEventListener('change', filterAndRenderProspects);
+        timeFilterSelect.addEventListener('change', filterAndRenderProspects);
+        
+        prospectTabs.addEventListener('click', (e) => {
+            const tabBtn = e.target.closest('.tab-btn');
+            if (!tabBtn) return;
+            
+            // Remove active state from all tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+
+            // Add active state to clicked tab
+            tabBtn.classList.remove('bg-gray-200', 'text-gray-700');
+            tabBtn.classList.add('bg-indigo-600', 'text-white');
+
+            currentFilter = tabBtn.dataset.filter;
+            filterAndRenderProspects();
+        });
+
+        mainTabs.addEventListener('click', (e) => {
+            const tabBtn = e.target.closest('.main-tab-btn');
+            if (!tabBtn) return;
+
+            document.querySelectorAll('.main-tab-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+
+            tabBtn.classList.remove('bg-gray-200', 'text-gray-700');
+            tabBtn.classList.add('bg-indigo-600', 'text-white');
+
+            if (tabBtn.dataset.tab === 'leads') {
+                leadsSection.classList.remove('hidden');
+                reportsSection.classList.add('hidden');
+            } else if (tabBtn.dataset.tab === 'reports') {
+                leadsSection.classList.add('hidden');
+                reportsSection.classList.remove('hidden');
+                updateCharts();
+            }
+        });
+        
+        // Leaflet.js map initialization
+        const initMap = () => {
+            // No longer needed
+        };
+
+        window.checkIn = (id) => {
+            let prospects = loadFromLocalStorage();
+            const prospectIndex = prospects.findIndex(p => p.id === id);
+            if (prospectIndex > -1) {
+                prospects[prospectIndex].followUps += 1;
+                prospects[prospectIndex].lastContacted = Date.now();
+                saveToLocalStorage(prospects);
+                showAlert(`Checked in with ${prospects[prospectIndex].name}! Follow-up count updated.`);
+            }
+        };
+        
+        // Show/hide unit input when checkbox is clicked
+        document.querySelectorAll('input[name="devices"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const unitsInput = e.target.nextElementSibling.nextElementSibling;
+                if (e.target.checked) {
+                    unitsInput.classList.remove('hidden');
+                    unitsInput.focus();
+                } else {
+                    unitsInput.classList.add('hidden');
+                    unitsInput.value = '';
+                }
+            });
+        });
+
+        // Initial render
+        window.onload = () => {
+            // Check for sample data and add if none exists
+            if (loadFromLocalStorage().length === 0) {
+                generateSampleData();
+            }
+            populateLocationFilter();
+            filterAndRenderProspects();
+        };
+    </script>
+</body>
+</html>
